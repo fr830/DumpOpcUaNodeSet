@@ -2,7 +2,7 @@
 # author: Piotr Nikiel
 
 from pyuaf.util import Address, ExpandedNodeId, NodeId
-from pyuaf.util import constants, opcuaidentifiers, nodeididentifiertypes, attributeids
+from pyuaf.util import constants, opcuaidentifiers, nodeididentifiertypes, attributeids, nodeclasses
 
 import pdb  #  TODO remove
 import nodeset_xml
@@ -28,7 +28,17 @@ def recurse(client, expanded_node_id, document, parent, refTypeFromParent):
         
         stringified_id = stringify_nodeid(expanded_node_id.nodeId() )
         if not stringified_id in added_nodes:
-            document.append( nodeset_xml.make_element_for_uaobject( stringified_id, browse_name, references, parent, refTypeFromParent  ) )
+            result_nodeclass = client.read([Address(expanded_node_id)], attributeids.NodeClass)
+            nodeclass = result_nodeclass.targets[0].data.value
+            #print 'nodeclass='+str(result_nodeclass.targets[0].data)
+            if nodeclass == nodeclasses.Object:
+                document.append( nodeset_xml.make_element_for_uaobject( stringified_id, browse_name, references, parent, refTypeFromParent  ) )
+                
+            elif nodeclass == nodeclasses.Variable:
+                document.append( nodeset_xml.make_element_for_uavariable( stringified_id, browse_name, references, parent, refTypeFromParent  ) )
+                
+            else:
+                print 'nodeclass not supported'
             added_nodes.append( stringified_id )
 
 

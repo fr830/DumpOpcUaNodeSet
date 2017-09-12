@@ -23,13 +23,7 @@ def writeout_document(document, path):
     output_file = file(path, 'w')  #  TODO: path should be configurable
     output_file.write( etree.tostring(document, pretty_print=True, xml_declaration=True, encoding='utf8') )
 
-def make_element_for_uaobject(nodeid, browseName, references, parent, refTypeFromParent):
-    if browseName == '':
-        browseName = 'browsename-not-specified'
-    element = etree.Element("UAObject", NodeId=nodeid, BrowseName=browseName)
-    display_name = etree.Element("DisplayName")  # this is a hack actually
-    display_name.text = browseName
-    element.append (display_name)
+def make_element_for_references(references, parent, refTypeFromParent):
     if len(references)>0 or parent.nodeId().nameSpaceIndex() == 0L:  # TODO constant
         element_references = etree.Element("References")
         if parent.nodeId().nameSpaceIndex() == 0L:
@@ -42,6 +36,32 @@ def make_element_for_uaobject(nodeid, browseName, references, parent, refTypeFro
             element_reference.text = stringify_nodeid( reference.nodeId.nodeId() )
             element_references.append(element_reference)
             print reference
-        element.append(element_references)
+        return element_references
+    else:
+        return None
+
+
+def make_element_for_uaobject(nodeid, browseName, references, parent, refTypeFromParent):
+    if browseName == '':
+        browseName = 'browsename-not-specified'
+    element = etree.Element("UAObject", NodeId=nodeid, BrowseName=browseName)
+    display_name = etree.Element("DisplayName")  # this is a hack actually
+    display_name.text = browseName
+    element.append (display_name)
+    potential_references = make_element_for_references(references, parent, refTypeFromParent)
+    if (potential_references):
+        element.append(potential_references)
         
+    return element
+
+def make_element_for_uavariable(nodeid, browseName, references, parent, refTypeFromParent):
+    if browseName == '':
+        browseName = 'browsename-not-specified'
+    element = etree.Element("UAVariable", NodeId=nodeid, BrowseName=browseName)
+    display_name = etree.Element("DisplayName")  # this is a hack actually
+    display_name.text = browseName
+    element.append (display_name)
+    potential_references = make_element_for_references(references, parent, refTypeFromParent)
+    if (potential_references):
+        element.append(potential_references)        
     return element
