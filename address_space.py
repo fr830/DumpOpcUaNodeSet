@@ -1,7 +1,7 @@
 # this file is part of OPC-UA AddressSpace dump tool
 # author: Piotr Nikiel
 
-from pyuaf.util import Address, ExpandedNodeId, NodeId
+from pyuaf.util import Address, ExpandedNodeId, NodeId, LocalizedText
 from pyuaf.util import constants, opcuaidentifiers, nodeididentifiertypes, attributeids, nodeclasses
 
 import pdb  #  TODO remove
@@ -14,8 +14,11 @@ def get_attribute(client, expanded_node_id, attribute, context):
     result = client.read([Address(expanded_node_id)], attribute)
 
     if result.targets[0].status.isGood():
-        
-        attribute_value = result.targets[0].data.name()
+
+        if type(result.targets[0].data) == LocalizedText:
+            attribute_value = result.targets[0].data.text()
+        else:
+            attribute_value = result.targets[0].data.name()
         if type(attribute_value) == type(None):
             attribute_value = 'WARNING_attribute_value_is_none'
             context['errors'] += 1
@@ -49,7 +52,9 @@ def recurse(client, expanded_node_id, document, parent, refTypeFromParent, conte
             # wiser to go with dictionary switch (??)
             if nodeclass == nodeclasses.Object:
                 # TODO : browse name fetch?
-                document.append( nodeset_xml.make_element_for_uaobject( stringified_id, browse_name, references, parent, refTypeFromParent  ) )
+                display_name = get_attribute( client, expanded_node_id, attributeids.DisplayName, context)
+                opcua_attributes = {'NodeId':stringified_id, 'BrowseName':browse_name, 'DisplayName':display_name}
+                document.append( nodeset_xml.make_element_for_uaobject( stringified_id, opcua_attributes, references, parent, refTypeFromParent  ) )
                 
             elif nodeclass == nodeclasses.Variable:
                 document.append( nodeset_xml.make_element_for_uavariable( stringified_id, browse_name, references, parent, refTypeFromParent  ) )

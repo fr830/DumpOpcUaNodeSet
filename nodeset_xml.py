@@ -41,13 +41,18 @@ def make_element_for_references(references, parent, refTypeFromParent):
         return None
 
 
-def make_element_for_uaobject(nodeid, browseName, references, parent, refTypeFromParent):
-    if browseName == '':
-        browseName = 'browsename-not-specified'
-    element = etree.Element("UAObject", NodeId=nodeid, BrowseName=browseName)
-    display_name = etree.Element("DisplayName")  # this is a hack actually
-    display_name.text = browseName
-    element.append (display_name)
+def make_element_for_uaobject(nodeid, opcua_attributes, references, parent, refTypeFromParent):
+    
+    AttributesOfObject = ['NodeId', 'BrowseName']
+    ElementsOfObject = ['DisplayName']
+    attributes = {k:v for k,v in opcua_attributes.iteritems() if k in AttributesOfObject}
+    extra_elements = {k:v for k,v in opcua_attributes.iteritems() if k in ElementsOfObject}
+    element = etree.Element("UAObject", attributes)
+
+    for key in extra_elements.keys():
+        extra_element = etree.Element(key)
+        extra_element.text = extra_elements[key]
+        element.append (extra_element)
     potential_references = make_element_for_references(references, parent, refTypeFromParent)
     if (potential_references):
         element.append(potential_references)
