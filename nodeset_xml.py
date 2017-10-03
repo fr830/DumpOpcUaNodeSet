@@ -40,14 +40,10 @@ def make_element_for_references(references, parent, refTypeFromParent):
     else:
         return None
 
-
-def make_element_for_uaobject(nodeid, opcua_attributes, references, parent, refTypeFromParent):
-    
-    AttributesOfObject = ['NodeId', 'BrowseName']
-    ElementsOfObject = ['DisplayName']
-    attributes = {k:v for k,v in opcua_attributes.iteritems() if k in AttributesOfObject}
+def make_element(nodeid, opcua_attributes, references, parent, refTypeFromParent, AttributesOfObject, ElementsOfObject, type_name):
+    attributes = {k:str(v) for k,v in opcua_attributes.iteritems() if k in AttributesOfObject}
     extra_elements = {k:v for k,v in opcua_attributes.iteritems() if k in ElementsOfObject}
-    element = etree.Element("UAObject", attributes)
+    element = etree.Element(type_name, attributes)
 
     for key in extra_elements.keys():
         extra_element = etree.Element(key)
@@ -59,14 +55,19 @@ def make_element_for_uaobject(nodeid, opcua_attributes, references, parent, refT
         
     return element
 
-def make_element_for_uavariable(nodeid, browseName, references, parent, refTypeFromParent):
-    if browseName == '':
-        browseName = 'browsename-not-specified'
-    element = etree.Element("UAVariable", NodeId=nodeid, BrowseName=browseName)
-    display_name = etree.Element("DisplayName")  # this is a hack actually
-    display_name.text = browseName
-    element.append (display_name)
-    potential_references = make_element_for_references(references, parent, refTypeFromParent)
-    if (potential_references):
-        element.append(potential_references)        
-    return element
+
+def make_element_for_uaobject(nodeid, opcua_attributes, references, parent, refTypeFromParent):
+    AttributesOfObject = ['NodeId', 'BrowseName']
+    ElementsOfObject = ['DisplayName']
+    return make_element(nodeid, opcua_attributes, references, parent, refTypeFromParent, AttributesOfObject, ElementsOfObject, 'UAObject')
+
+def make_element_for_uavariable(nodeid, opcua_attributes, references, parent, refTypeFromParent):
+    AttributesOfVariable = ['NodeId', 'BrowseName', 'DataType', 'ValueRank', 'ArrayDimensions', 'AccessLevel', 'UserAccessLevel', 'MinimumSamplingInterval', 'Historizing']
+    ElementsOfVariable = ['DisplayName', 'Value']
+    return make_element(nodeid, opcua_attributes, references, parent, refTypeFromParent, AttributesOfVariable, ElementsOfVariable, 'UAVariable')
+
+def make_element_for_uamethod(nodeid, opcua_attributes, references, parent, refTypeFromParent):
+    AttributesOfMethod = ['NodeId', 'BrowseName', 'Executable']
+    ElementsOfMethod = ['DisplayName']  # TODO MethodArgument missing!
+    return make_element(nodeid, opcua_attributes, references, parent, refTypeFromParent, AttributesOfMethod, ElementsOfMethod, 'UAMethod')
+

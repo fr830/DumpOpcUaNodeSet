@@ -1,8 +1,8 @@
 # this file is part of OPC-UA AddressSpace dump tool
 # author: Piotr Nikiel
 
-from pyuaf.util import Address, ExpandedNodeId, NodeId, LocalizedText
-from pyuaf.util import constants, opcuaidentifiers, nodeididentifiertypes, attributeids, nodeclasses
+from pyuaf.util import Address, ExpandedNodeId, NodeId, LocalizedText, QualifiedName
+from pyuaf.util import constants, opcuaidentifiers, nodeididentifiertypes, attributeids, nodeclasses, primitives
 
 import pdb  #  TODO remove
 import nodeset_xml
@@ -12,19 +12,25 @@ added_nodes = []
 
 def get_attribute(client, expanded_node_id, attribute, context):
     result = client.read([Address(expanded_node_id)], attribute)
-
+    
     if result.targets[0].status.isGood():
-
-        if type(result.targets[0].data) == LocalizedText:
-            attribute_value = result.targets[0].data.text()
-        else:
-            attribute_value = result.targets[0].data.name()
-        if type(attribute_value) == type(None):
+        data = result.targets[0].data
+        if type(data) == LocalizedText:
+            attribute_value = data.text()
+        elif type(data) in [primitives.Int32, primitives.Byte, primitives.Boolean]:
+            attribute_value = data.value
+        elif type(data) == QualifiedName:
+            attribute_value = data.name()
+        elif type(data) == NodeId:
+            attribute_value = stringify_nodeid( data )
+        elif type(data) == type(None):
             attribute_value = 'WARNING_attribute_value_is_none'
             context['errors'] += 1
+        else:
+            raise Exception("Don't know what to do when typs is {0}".format(str(type(data))))
     else:
         context['errors'] += 1
-        browse_name = "ERROR_attribute_not_readable"
+        attribute_value = "ERROR_attribute_not_readable"
     
     return attribute_value
         
@@ -39,31 +45,49 @@ def recurse(client, expanded_node_id, document, parent, refTypeFromParent, conte
     references = results.targets[0].references  #  asked to browse only one address, that's why targets[0]
 
     if expanded_node_id.nodeId().nameSpaceIndex() != constants.OPCUA_NAMESPACE_ID:
-        # get our browse name
-        
 
-        browse_name = get_attribute( client, expanded_node_id, attributeids.BrowseName, context)
+
         
         stringified_id = stringify_nodeid(expanded_node_id.nodeId() )
         if not stringified_id in added_nodes:
-            result_nodeclass = client.read([Address(expanded_node_id)], attributeids.NodeClass)
-            nodeclass = result_nodeclass.targets[0].data.value
-            #print 'nodeclass='+str(result_nodeclass.targets[0].data)
-            # wiser to go with dictionary switch (??)
+            
+            nodeclass = get_attribute( client, expanded_node_id, attributeids.NodeClass, context)
+            display_name = get_attribute( client, expanded_node_id, attributeids.DisplayName, context)
+            browse_name = get_attribute( client, expanded_node_id, attributeids.BrowseName, context)
+
             if nodeclass == nodeclasses.Object:
-                # TODO : browse name fetch?
-                display_name = get_attribute( client, expanded_node_id, attributeids.DisplayName, context)
-                opcua_attributes = {'NodeId':stringified_id, 'BrowseName':browse_name, 'DisplayName':display_name}
+                opcua_attributes = {
+                    'NodeId':stringified_id, 
+                    'BrowseName':browse_name, 
+                    'DisplayName':display_name
+                }
                 document.append( nodeset_xml.make_element_for_uaobject( stringified_id, opcua_attributes, references, parent, refTypeFromParent  ) )
                 
             elif nodeclass == nodeclasses.Variable:
-                document.append( nodeset_xml.make_element_for_uavariable( stringified_id, browse_name, references, parent, refTypeFromParent  ) )
+                data_type = get_attribute( client, expanded_node_id, attributeids.DataType, context)
+                access_level = get_attribute( client, expanded_node_id, attributeids.AccessLevel, context)
+                opcua_attributes = {
+                    'NodeId':stringified_id, 
+                    'BrowseName':browse_name, 
+                    'DisplayName':display_name,
+                    'DataType':data_type,
+                    'AccessLevel':access_level
+                }
+                document.append( nodeset_xml.make_element_for_uavariable( stringified_id, opcua_attributes, references, parent, refTypeFromParent  ) )
 
             elif nodeclass == nodeclasses.Method:
-                pass  # TODO
+                executable = get_attribute( client, expanded_node_id, attributeids.Executable, context)
+                opcua_attributes = {
+                    'NodeId':stringified_id, 
+                    'BrowseName':browse_name, 
+                    'DisplayName':display_name,
+                    'Executable':executable
+                }
+                document.append( nodeset_xml.make_element_for_uamethod( stringified_id, opcua_attributes, references, parent, refTypeFromParent  ) )
                 
             else:
                 print 'nodeclass not supported'
+                context['errors'] += 1
             added_nodes.append( stringified_id )
 
 
